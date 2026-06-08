@@ -50,3 +50,7 @@ async def data_input(input : CustomerInput):
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled) 
     return {"Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
+
+@app.get("/health")
+async def get_status():
+    return {"status": "ok"}
