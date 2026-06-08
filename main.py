@@ -31,9 +31,15 @@ class CustomerInput(BaseModel):
     PaymentMethod    :  str
     MonthlyCharges   :  float
 
+class BatchInput(BaseModel):
+    customers: list[CustomerInput]
+
 class CustomerOutput(BaseModel):
     Churn : int
     probability : float
+
+class BatchOutput(BaseModel):
+    result: list[CustomerOutput]
 
 encode_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges', 'gender_Male', 'Partner_Yes', 'Dependents_Yes', 'PhoneService_Yes', 'MultipleLines_No phone service', 'MultipleLines_Yes', 'InternetService_Fiber optic', 'InternetService_No', 'OnlineSecurity_No internet service', 'OnlineSecurity_Yes', 'OnlineBackup_No internet service', 'OnlineBackup_Yes', 'DeviceProtection_No internet service', 'DeviceProtection_Yes', 'TechSupport_No internet service', 'TechSupport_Yes', 'StreamingTV_No internet service', 'StreamingTV_Yes', 'StreamingMovies_No internet service', 'StreamingMovies_Yes', 'Contract_One year', 'Contract_Two year', 'PaperlessBilling_Yes', 'PaymentMethod_Credit card (automatic)', 'PaymentMethod_Electronic check', 'PaymentMethod_Mailed check']
 
@@ -50,6 +56,20 @@ async def data_input(input : CustomerInput):
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled) 
     return {"Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
+
+@app.post("/predict/batch", status_code=201, response_model= BatchOutput)
+async def data_input(input : BatchInput):
+    df_input = pd.DataFrame([c.dict() for c in input.customers])
+    cat_cols = df_input.select_dtypes(include='object').columns.tolist()
+    num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
+    df_categ = df_input[cat_cols]
+    df_num = df_input[num_cols]
+    encoded_df_categ = encoder.transform(df_categ)
+    df_final = np.hstack([df_num.values, encoded_df_categ])
+    df_final_scaled = scaler.transform(df_final)
+    predictions = model.predict(df_final_scaled)
+    prediction_proba = model.predict_proba(df_final_scaled) 
+    return {"result": [{"Churn": p, "probability":pp} for p,pp in zip(predictions,prediction_proba[:,1])]}
 
 @app.get("/health")
 async def get_status():
