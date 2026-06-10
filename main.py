@@ -1,15 +1,23 @@
 from pydantic import BaseModel
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 import joblib 
 import pandas as pd 
 import numpy as np 
 from sklearn.preprocessing import StandardScaler
+from database import Base, engine, Session, get_db, CustomerPred
+from contextlib import asynccontextmanager
 
 model = joblib.load('models/churn_model.pkl')
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+    # εδώ γίνεται το shutdown
+
+app = FastAPI(lifespan=lifespan)
 
 class CustomerInput(BaseModel):
     gender           :  str
@@ -44,7 +52,7 @@ class BatchOutput(BaseModel):
 encode_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges', 'gender_Male', 'Partner_Yes', 'Dependents_Yes', 'PhoneService_Yes', 'MultipleLines_No phone service', 'MultipleLines_Yes', 'InternetService_Fiber optic', 'InternetService_No', 'OnlineSecurity_No internet service', 'OnlineSecurity_Yes', 'OnlineBackup_No internet service', 'OnlineBackup_Yes', 'DeviceProtection_No internet service', 'DeviceProtection_Yes', 'TechSupport_No internet service', 'TechSupport_Yes', 'StreamingTV_No internet service', 'StreamingTV_Yes', 'StreamingMovies_No internet service', 'StreamingMovies_Yes', 'Contract_One year', 'Contract_Two year', 'PaperlessBilling_Yes', 'PaymentMethod_Credit card (automatic)', 'PaymentMethod_Electronic check', 'PaymentMethod_Mailed check']
 
 @app.post("/predict", status_code=201, response_model= CustomerOutput)
-async def data_input(input : CustomerInput):
+def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     df_input = pd.DataFrame([input.dict()])
     cat_cols = df_input.select_dtypes(include='object').columns.tolist()
     num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
@@ -55,10 +63,14 @@ async def data_input(input : CustomerInput):
     df_final_scaled = scaler.transform(df_final)
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled) 
+    new_pred = CustomerPred(churn = int(predictions[0]), probability = float(prediction_proba[0][1]))
+    db.add(new_pred)
+    db.commit()
+    db.refresh(new_pred)
     return {"Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
 
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
-async def data_input(input : BatchInput):
+def data_input(input : BatchInput):
     df_input = pd.DataFrame([c.dict() for c in input.customers])
     cat_cols = df_input.select_dtypes(include='object').columns.tolist()
     num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
@@ -72,5 +84,5 @@ async def data_input(input : BatchInput):
     return {"result": [{"Churn": p, "probability":pp} for p,pp in zip(predictions,prediction_proba[:,1])]}
 
 @app.get("/health")
-async def get_status():
+def get_status():
     return {"status": "ok"}
