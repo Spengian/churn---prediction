@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import os
 from datetime import datetime
@@ -26,3 +26,4 @@ class CustomerPred(Base):
     churn: Mapped[int] = mapped_column()
     probability: Mapped[float] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
+    input_data: Mapped[dict] = mapped_column(JSON)

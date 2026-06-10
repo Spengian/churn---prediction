@@ -45,6 +45,7 @@ class BatchInput(BaseModel):
 class CustomerOutput(BaseModel):
     Churn : int
     probability : float
+    input_data : dict
 
 class BatchOutput(BaseModel):
     result: list[CustomerOutput]
@@ -63,14 +64,16 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     df_final_scaled = scaler.transform(df_final)
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled) 
-    new_pred = CustomerPred(churn = int(predictions[0]), probability = float(prediction_proba[0][1]))
+    new_pred = CustomerPred(churn = int(predictions[0]), 
+                            probability = float(prediction_proba[0][1]),
+                            input_data = input.dict())
     db.add(new_pred)
     db.commit()
     db.refresh(new_pred)
-    return {"Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
+    return {"input_data": input.dict(), "Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
 
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
-def data_input(input : BatchInput):
+def data_input(input : BatchInput, db: Session = Depends(get_db)):
     df_input = pd.DataFrame([c.dict() for c in input.customers])
     cat_cols = df_input.select_dtypes(include='object').columns.tolist()
     num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
@@ -80,8 +83,14 @@ def data_input(input : BatchInput):
     df_final = np.hstack([df_num.values, encoded_df_categ])
     df_final_scaled = scaler.transform(df_final)
     predictions = model.predict(df_final_scaled)
-    prediction_proba = model.predict_proba(df_final_scaled) 
-    return {"result": [{"Churn": p, "probability":pp} for p,pp in zip(predictions,prediction_proba[:,1])]}
+    prediction_proba = model.predict_proba(df_final_scaled)
+    for pred, proba, inp in zip(predictions,prediction_proba[:,1], input.customers):
+        new_pred = CustomerPred(churn = int(pred), 
+                                probability = float(proba),
+                                input_data = inp.dict())
+        db.add(new_pred)
+    db.commit()
+    return {"result": [{"input_data": id.dict(), "Churn": p, "probability":pb} for p,pb,id in zip(predictions,prediction_proba[:,1], input.customers)]}
 
 @app.get("/health")
 def get_status():
