@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from database import Base, engine, Session, get_db, CustomerPred
 from contextlib import asynccontextmanager
+from sqlalchemy import select
 
 model = joblib.load('models/churn_model.pkl')
 scaler = joblib.load('models/scaler.pkl')
@@ -95,3 +96,9 @@ def data_input(input : BatchInput, db: Session = Depends(get_db)):
 @app.get("/health")
 def get_status():
     return {"status": "ok"}
+
+@app.get("/predictions")
+def get_pred(db: Session = Depends(get_db)):
+    query = select(CustomerPred)
+    result = db.execute(query)
+    return {"customers": result.scalars().all()}
