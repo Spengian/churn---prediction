@@ -55,7 +55,7 @@ encode_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges', 'gender_Male', 'Part
 
 @app.post("/predict", status_code=201, response_model= CustomerOutput)
 def data_input(input : CustomerInput, db: Session = Depends(get_db)):
-    df_input = pd.DataFrame([input.dict()])
+    df_input = pd.DataFrame([input.model_dump()])
     cat_cols = df_input.select_dtypes(include='object').columns.tolist()
     num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
     df_categ = df_input[cat_cols]
@@ -67,11 +67,11 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     prediction_proba = model.predict_proba(df_final_scaled) 
     new_pred = CustomerPred(churn = int(predictions[0]), 
                             probability = float(prediction_proba[0][1]),
-                            input_data = input.dict())
+                            input_data = input.model_dump())
     db.add(new_pred)
     db.commit()
     db.refresh(new_pred)
-    return {"input_data": input.dict(), "Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
+    return {"input_data": input.model_dump(), "Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
 
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
 def data_input(input : BatchInput, db: Session = Depends(get_db)):
