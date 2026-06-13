@@ -8,4 +8,4 @@ sqlalchemy
 psycopg2-binary
 pytest
 httpx
-xgboost --no-deps
+xgboost
