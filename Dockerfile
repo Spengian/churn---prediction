@@ -3,9 +3,8 @@ WORKDIR /app
 
 # Install the application dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir numpy scipy
-RUN pip install --no-cache-dir xgboost --no-deps
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir xgboost[cpu] --upgrade
 
 # Copy in the source code
 COPY . .
