@@ -8,6 +8,7 @@ from database import Base, engine, Session, get_db, CustomerPred
 from contextlib import asynccontextmanager
 from sqlalchemy import select
 
+
 model = joblib.load('models/churn_model.pkl')
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')

@@ -2,9 +2,11 @@ from sqlalchemy import create_engine, func, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import os
 from datetime import datetime
+import logging
 
 DATABASE_URL = os.getenv("DATABASE_URL",  "sqlite:///./test.db") #το δευτερο για να το τρεχω τοπικα εκτος docker
 DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
+logging.info(f"DATABASE_URL: {DATABASE_URL}")
 
 engine = create_engine(DATABASE_URL, echo=True)
 
