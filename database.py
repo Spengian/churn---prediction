@@ -6,7 +6,7 @@ import logging
 
 DATABASE_URL = os.getenv("DATABASE_URL",  "sqlite:///./test.db") #το δευτερο για να το τρεχω τοπικα εκτος docker
 DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
-logging.info(f"DATABASE_URL: {DATABASE_URL}")
+print(f"DATABASE_URL: {DATABASE_URL}", flush=True)
 
 engine = create_engine(DATABASE_URL, echo=True)
 
