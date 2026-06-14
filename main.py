@@ -11,7 +11,9 @@ import mlflow
 import dagshub
 import os 
 
-dagshub.init(repo_owner='Spengian', repo_name='churn---prediction', mlflow=True, token = os.getenv("DAGSHUB_TOKEN"))
+os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
+os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("DAGSHUB_TOKEN", "")
 model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')
