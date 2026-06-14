@@ -7,9 +7,14 @@ from sklearn.preprocessing import StandardScaler
 from database import Base, engine, Session, get_db, CustomerPred
 from contextlib import asynccontextmanager
 from sqlalchemy import select
+import mlflow
+import dagshub
+import os 
 
-
-model = joblib.load('models/churn_model.pkl')
+os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
+os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("DAGSHUB_TOKEN", "")
+model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')
 
