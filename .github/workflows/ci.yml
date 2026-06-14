@@ -38,3 +38,9 @@ jobs:
         with:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/churn-prediction:latest
+
+      - name: Set DagsHub credentials
+        env:
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: echo "MLFLOW_TRACKING_USERNAME=Spengian" >> $GITHUB_ENV
+             echo "MLFLOW_TRACKING_PASSWORD=$DAGSHUB_TOKEN" >> $GITHUB_ENV
