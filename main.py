@@ -7,9 +7,11 @@ from sklearn.preprocessing import StandardScaler
 from database import Base, engine, Session, get_db, CustomerPred
 from contextlib import asynccontextmanager
 from sqlalchemy import select
+import mlflow
+import dagshub
 
-
-model = joblib.load('models/churn_model.pkl')
+dagshub.init(repo_owner='Spengian', repo_name='churn---prediction', mlflow=True)
+model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')
 
