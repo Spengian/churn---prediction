@@ -9,3 +9,5 @@ psycopg2-binary
 pytest
 httpx
 xgboost
+dagshub
+mlflow
