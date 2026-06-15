@@ -11,3 +11,4 @@ httpx
 xgboost
 dagshub
 mlflow
+prometheus-fastapi-instrumentator

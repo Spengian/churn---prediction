@@ -10,6 +10,8 @@ from sqlalchemy import select
 import mlflow
 import dagshub
 import os 
+from prometheus_fastapi_instrumentator import Instrumentator
+
 
 os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
 os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
@@ -26,6 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+Instrumentator().instrument(app).expose(app)
 class CustomerInput(BaseModel):
     gender           :  str
     SeniorCitizen    :  int
