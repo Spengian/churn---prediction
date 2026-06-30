@@ -138,7 +138,7 @@ http://localhost:8000/docs
 
 ---
 
-## CI Pipeline
+## CI/CD Pipeline
 
 ```
 git push → GitHub Actions
@@ -150,13 +150,13 @@ pytest (integration tests)
 docker build (from the Dockerfile)
     │
     ▼
-push → Docker Hub
+push → Docker Hub (:latest)
     │
     ▼
-manual deploy → Railway
+Railway auto-detects new image → redeploys
 ```
 
-> Currently this pipeline is **CI only**, not full CD — deployment to Railway is triggered manually after the image is pushed. A planned next step is automating this via the Railway API/CLI within the same workflow.
+> Railway is configured to watch the `:latest` tag on Docker Hub and automatically redeploy when a new image is pushed. In practice, this detection relies on periodic polling rather than a push-based webhook, so the delay between a successful CI run and the actual redeploy can range from a few minutes to a few hours. A more deterministic approach — triggering the deploy directly via the Railway API/CLI as the final CI step — was considered and is a planned improvement for instant, predictable deployments.
 
 ---
 
@@ -166,12 +166,16 @@ manual deploy → Railway
 - [ ] Evidently for data/prediction drift detection
 - [ ] PostgreSQL service in CI for full environment parity with production
 - [ ] Versioned Docker image tags instead of `latest` (rollback capability)
-- [ ] Full CD: automatic deployment to Railway after CI passes
+- [ ] Faster, deterministic CD: trigger Railway deploy directly via API/CLI from CI, instead of relying on Railway's polling-based auto-update
 - [ ] Semantic validation in the Pydantic schema (e.g. non-negative tenure values)
 - [ ] Fallback mechanism if model loading from DagsHub fails
 - [ ] Kubernetes deployment (once real scaling is needed)
 
+---
 
+## Live Demo
+
+🚀 [Railway Deployment](#)
 
 ---
 
