@@ -175,7 +175,7 @@ Railway auto-detects new image → redeploys
 
 ## Live Demo
 
-🚀 [Railway Deployment](#)
+🚀 Demo deployment may be temporarily down due to free-tier hosting limits.
 
 ---
 
