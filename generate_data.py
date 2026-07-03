@@ -67,3 +67,11 @@ for i, (chunk_x, chunk_y) in enumerate(zip(chunks_X, chunks_y)):
     chunk_df.to_csv(f'data/chunks/chunk_{i}.csv', index=False)
 
 print("Chunks saved!")
+
+train_data = pd.DataFrame(X_train_final, columns=encoded_cols)
+train_data['Churn'] = y_train.values
+train_data.to_csv(f'data/train_data.csv', index = False)
+
+test_data = pd.DataFrame(X_test_final, columns=encoded_cols)
+test_data['Churn'] = y_test.values
+test_data.to_csv(f'data/test_data.csv', index = False)
