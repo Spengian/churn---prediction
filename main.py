@@ -11,6 +11,7 @@ import mlflow
 import dagshub
 import os 
 from prometheus_fastapi_instrumentator import Instrumentator
+import shap
 
 
 os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
@@ -56,6 +57,7 @@ class CustomerOutput(BaseModel):
     Churn : int
     probability : float
     input_data : dict
+    top_features : dict
 
 class BatchOutput(BaseModel):
     result: list[CustomerOutput]
@@ -72,6 +74,13 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     encoded_df_categ = encoder.transform(df_categ)
     df_final = np.hstack([df_num.values, encoded_df_categ])
     df_final_scaled = scaler.transform(df_final)
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(df_final_scaled)
+    feature_names = np.array(encode_cols)
+    top_indices = np.argsort(np.abs(shap_values[0]))[-2:][::-1]
+    top_features = feature_names[top_indices]
+    top_shap_values = shap_values[0][top_indices]
+    top_features_dict = dict(zip(top_features.tolist(), top_shap_values.tolist()))
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled) 
     new_pred = CustomerPred(churn = int(predictions[0]), 
@@ -80,7 +89,7 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     db.add(new_pred)
     db.commit()
     db.refresh(new_pred)
-    return {"input_data": input.model_dump(), "Churn": int(predictions[0]), "probability": float(prediction_proba[0][1])}
+    return {"input_data": input.model_dump(), "Churn": int(predictions[0]), "probability": float(prediction_proba[0][1]), "top_features": top_features_dict}
 
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
 def data_input(input : BatchInput, db: Session = Depends(get_db)):
@@ -92,15 +101,23 @@ def data_input(input : BatchInput, db: Session = Depends(get_db)):
     encoded_df_categ = encoder.transform(df_categ)
     df_final = np.hstack([df_num.values, encoded_df_categ])
     df_final_scaled = scaler.transform(df_final)
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(df_final_scaled)
+    feature_names = np.array(encode_cols)
     predictions = model.predict(df_final_scaled)
     prediction_proba = model.predict_proba(df_final_scaled)
-    for pred, proba, inp in zip(predictions,prediction_proba[:,1], input.customers):
+    top_features_list = []
+    for i, (pred, proba, inp) in enumerate(zip(predictions,prediction_proba[:,1], input.customers)):
         new_pred = CustomerPred(churn = int(pred), 
                                 probability = float(proba),
                                 input_data = inp.model_dump())
+        top_indices = np.argsort(np.abs(shap_values[i]))[-2:][::-1]
+        top_feat = dict(zip(feature_names[top_indices].tolist(), shap_values[i][top_indices].tolist()))
+        top_features_list.append(top_feat)
         db.add(new_pred)
     db.commit()
-    return {"result": [{"input_data": id.model_dump(), "Churn": p, "probability":pb} for p,pb,id in zip(predictions,prediction_proba[:,1], input.customers)]}
+    return {"result": [{"input_data": id.model_dump(), "Churn": p, "probability":pb, "top_features": tf} 
+                       for p,pb,id,tf in zip(predictions,prediction_proba[:,1], input.customers, top_features_list)]}
 
 @app.get("/health")
 def get_status():
