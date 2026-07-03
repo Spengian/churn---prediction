@@ -84,7 +84,7 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
 
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
 def data_input(input : BatchInput, db: Session = Depends(get_db)):
-    df_input = pd.DataFrame([c.dict() for c in input.customers])
+    df_input = pd.DataFrame([c.model_dump() for c in input.customers])
     cat_cols = df_input.select_dtypes(include='object').columns.tolist()
     num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
     df_categ = df_input[cat_cols]
@@ -97,10 +97,10 @@ def data_input(input : BatchInput, db: Session = Depends(get_db)):
     for pred, proba, inp in zip(predictions,prediction_proba[:,1], input.customers):
         new_pred = CustomerPred(churn = int(pred), 
                                 probability = float(proba),
-                                input_data = inp.dict())
+                                input_data = inp.model_dump())
         db.add(new_pred)
     db.commit()
-    return {"result": [{"input_data": id.dict(), "Churn": p, "probability":pb} for p,pb,id in zip(predictions,prediction_proba[:,1], input.customers)]}
+    return {"result": [{"input_data": id.model_dump(), "Churn": p, "probability":pb} for p,pb,id in zip(predictions,prediction_proba[:,1], input.customers)]}
 
 @app.get("/health")
 def get_status():

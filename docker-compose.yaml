@@ -41,3 +41,60 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+
+  airflow-webserver: 
+    image: apache/airflow:2.8.1
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
+      DATABASE_URL: postgresql://example:example@db:5432/example
+      _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
+      DAGSHUB_USER_TOKEN: yes123
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - .:/opt/airflow/project
+      - ./logs:/opt/airflow/logs
+    command:
+      - webserver
+    depends_on:
+      db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+  airflow-scheduler: 
+      image: apache/airflow:2.8.1
+      environment:
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
+        DATABASE_URL: postgresql://example:example@db:5432/example
+        _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
+        DAGSHUB_USER_TOKEN: yes123
+      volumes:
+        - ./dags:/opt/airflow/dags
+        - .:/opt/airflow/project
+        - ./logs:/opt/airflow/logs
+      command:
+        - scheduler
+      depends_on:
+        db:
+          condition: service_healthy
+        airflow-init:
+          condition: service_completed_successfully
+
+  airflow-init: 
+      image: apache/airflow:2.8.1
+      environment:
+        AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
+        DATABASE_URL: postgresql://example:example@db:5432/example
+        _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
+        DAGSHUB_USER_TOKEN: yes123
+      volumes:
+        - ./dags:/opt/airflow/dags
+        - .:/opt/airflow/project
+        - ./logs:/opt/airflow/logs
+      command:
+        - db
+        - init
+      depends_on: 
+        - db
+
