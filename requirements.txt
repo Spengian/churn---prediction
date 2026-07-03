@@ -12,3 +12,4 @@ xgboost
 dagshub
 mlflow
 prometheus-fastapi-instrumentator
+shap

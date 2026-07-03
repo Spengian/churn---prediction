@@ -69,9 +69,9 @@ def retrain_and_predict_model():
     scaler = StandardScaler()
     X_sc = scaler.fit_transform(X)
     X_test_sc = scaler.transform(X_test)
-    os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
-    os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = "yes123"
+    os.environ["MLFLOW_TRACKING_URI"] = os.getenv("MLFLOW_TRACKING_URI")
+    os.environ["MLFLOW_TRACKING_USERNAME"] =  os.getenv("MLFLOW_TRACKING_USERNAME")
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("MLFLOW_TRACKING_PASSWORD")
     mlflow.set_experiment("churn-prediction")
     model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
     with mlflow.start_run() as run:
