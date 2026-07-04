@@ -228,6 +228,7 @@ Railway auto-detects new image → redeploys
 - [ ] Versioned Docker image tags instead of `latest` (for rollback capability)
 - [ ] Alerting on pipeline task failure
 - [ ] Frontend (Streamlit or React)
+- [ ] Recall drops significantly after retraining (~0.83 → ~0.55). The exact cause is unclear — data, scaling, and early stopping have been ruled out. Under investigation.
 
 ---
 
