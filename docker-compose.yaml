@@ -50,7 +50,8 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
       DATABASE_URL: postgresql://example:example@db:5432/example
       _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
-      DAGSHUB_USER_TOKEN: yes123
+    env_file:
+      - .env
     volumes:
       - ./dags:/opt/airflow/dags
       - .:/opt/airflow/project
@@ -68,7 +69,8 @@ services:
         AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
         DATABASE_URL: postgresql://example:example@db:5432/example
         _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
-        DAGSHUB_USER_TOKEN: yes123
+      env_file:
+        - .env
       volumes:
         - ./dags:/opt/airflow/dags
         - .:/opt/airflow/project
@@ -87,7 +89,8 @@ services:
         AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://example:example@db:5432/example
         DATABASE_URL: postgresql://example:example@db:5432/example
         _PIP_ADDITIONAL_REQUIREMENTS: "mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7"
-        DAGSHUB_USER_TOKEN: yes123
+      env_file:
+        - .env
       volumes:
         - ./dags:/opt/airflow/dags
         - .:/opt/airflow/project

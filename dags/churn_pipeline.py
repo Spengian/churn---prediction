@@ -83,6 +83,10 @@ def retrain_and_predict_model():
         results = model.evals_result()
         train_logloss = results['validation_0']['logloss']  # train
         test_logloss = results['validation_1']['logloss']   # test  
+        for i, (tr, te) in enumerate(zip(train_logloss, test_logloss)):
+            if i % 25 == 0:
+                mlflow.log_metric("train_logloss", tr, step=i)
+                mlflow.log_metric("test_logloss", te, step=i)
         mlflow.log_metric("final_logloss", train_logloss[-1])
         current_chunk = int(Variable.get("current_chunk", default_var=0))
         mlflow.xgboost.log_model(model, f"model_chunk_{current_chunk}")
@@ -91,10 +95,9 @@ def retrain_and_predict_model():
 @task
 def update_chunk():
     current_chunk = int(Variable.get("current_chunk", default_var=0))
-    next_chunk = current_chunk + 1
-    if not os.path.exists(f"/opt/airflow/project/data/chunks/chunk_{next_chunk}.csv"):
+    if not os.path.exists(f"/opt/airflow/project/data/chunks/chunk_{current_chunk}.csv"):
         raise AirflowSkipException("All chunks processed!")
-    Variable.set("current_chunk", next_chunk)
+    Variable.set("current_chunk", current_chunk + 1)
 
 # Creating DAG Object
 @dag(
