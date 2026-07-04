@@ -14,6 +14,8 @@ data/
 
 # Mlflow
 mlruns/
+mlflow.db
+test.db
 
 # Logs
 logs/
