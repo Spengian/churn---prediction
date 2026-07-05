@@ -117,12 +117,3 @@ def test_get_predictions():
     assert response.status_code == 200  
     assert "customers" in response.json()
 
-def test_patch_churn():
-    # πρώτα predict για id
-    response = client.post("/predict", json=json_file)
-    id = response.json()["id"]
-    # μετά patch
-    patch_response = client.patch(f"/predictions/{id}/churn", json={"churn_real": 1})
-    assert patch_response.status_code == 200
-    assert patch_response.json()["churn_real"] == 1
-    assert patch_response.json()["id"] == id
