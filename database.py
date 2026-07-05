@@ -3,6 +3,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 import os
 from datetime import datetime
 import logging
+from typing import Optional
 
 DATABASE_URL = os.getenv("DATABASE_URL",  "sqlite:///./test.db") #το δευτερο για να το τρεχω τοπικα εκτος docker
 DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
@@ -26,7 +27,8 @@ class CustomerPred(Base):
     __tablename__ = "customer_predictions_table"
 
     id: Mapped[int] = mapped_column(primary_key = True)
-    churn: Mapped[int] = mapped_column()
+    churn_pred: Mapped[int] = mapped_column()
+    churn_real: Mapped[Optional[int]] = mapped_column(nullable=True)
     probability: Mapped[float] = mapped_column()
     timestamp: Mapped[datetime] = mapped_column(server_default=func.now())
     input_data: Mapped[dict] = mapped_column(JSON)

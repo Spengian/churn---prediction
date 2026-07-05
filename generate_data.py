@@ -77,3 +77,23 @@ train_data.to_csv(f'data/train_data.csv', index = False)
 test_data = pd.DataFrame(X_test_final, columns=encoded_cols)
 test_data['Churn'] = y_test.values
 test_data.to_csv(f'data/test_data.csv', index = False)
+
+os.makedirs('data/chunks_raw', exist_ok=True)
+
+chunks_X_raw = np.array_split(X_new, 10)
+chunks_y_raw = np.array_split(y_new.values, 10)
+
+for i, (chunk_x, chunk_y) in enumerate(zip(chunks_X_raw, chunks_y_raw)):
+    chunk_df = pd.DataFrame(chunk_x)
+    chunk_df['Churn'] = chunk_y
+    chunk_df.to_csv(f'data/chunks_raw/chunk_{i}.csv', index=False)
+
+print("Raw chunks saved!")
+
+train_data_raw = X_train.copy()
+train_data_raw['Churn'] = y_train.values
+train_data_raw.to_csv('data/train_data_raw.csv', index=False)
+
+test_data_raw = X_test.copy()
+test_data_raw['Churn'] = y_test.values
+test_data_raw.to_csv('data/test_data_raw.csv', index=False)

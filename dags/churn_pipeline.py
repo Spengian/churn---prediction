@@ -3,20 +3,20 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from airflow.models import Variable
 import pandas as pd
+import numpy as np
 import sys
 sys.path.insert(0, '/opt/airflow/project')
 from database_airflow import Session, CustomerPred
 import mlflow
-import dagshub 
 from airflow.decorators import task, dag
 from airflow.exceptions import AirflowSkipException
 from sklearn.metrics import recall_score, f1_score, precision_score
 import os 
-import joblib
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset
 from sklearn.preprocessing import StandardScaler
-
+import requests
+from sklearn.preprocessing import OneHotEncoder
 
 default_args = {
     'owner': 'airflow',
@@ -27,27 +27,34 @@ default_args = {
 @task
 def read_next_chunk():
     current_chunk = int(Variable.get("current_chunk", default_var=0))
-    file_path = f"/opt/airflow/project/data/chunks/chunk_{current_chunk}.csv"
-    #Το Airflow δεν μπορεί να περάσει DataFrame μεταξύ tasks απευθείας — χρησιμοποιεί XCom για να περνάει δεδομένα. Αλλά το XCom δεν υποστηρίζει DataFrames.
+    file_path = f"/opt/airflow/project/data/chunks_raw/chunk_{current_chunk}.csv"
     return file_path
 
 @task
-def load_to_postgres(file_path): 
+def simulate_ground_truth(file_path): 
     df = pd.read_csv(file_path)
-    db = Session()
-    for _, row in df.iterrows():
-        pred = CustomerPred(input_data = row.drop("Churn").to_dict(), churn = int(row["Churn"]), probability = 0)
-        db.add(pred)
-    db.commit()
-    db.close()
+    churn_labels = df['Churn'].values
+    df = df.drop("Churn", axis=1)
+    input_data = df.to_dict(orient="records")
+    response = requests.post(
+        "http://api:8000/predict/batch",
+        json = {"customers": input_data}
+    )
+    response.raise_for_status()
+    data = response.json()
+    updates = [{"id": r["id"], "churn_real": int(cl)} for r, cl in zip(data["result"], churn_labels)]
+    update_churn = requests.patch(
+        "http://api:8000/predictions/batch/churn",
+        json = {"updates": updates}
+    )
 
 @task
 def check_drift():
     db = Session()
-    records = db.query(CustomerPred).all()
+    records = db.query(CustomerPred).filter(CustomerPred.churn_real != None).all()
     df_new = pd.DataFrame([r.input_data for r in records])
-    df_new['Churn'] = [r.churn for r in records]
-    df_train = pd.read_csv('/opt/airflow/project/data/train_data.csv')
+    df_train = pd.read_csv('/opt/airflow/project/data/train_data_raw.csv')
+    df_train = df_train.drop('Churn', axis=1)
     os.makedirs('/opt/airflow/project/reports', exist_ok=True)
     report = Report(metrics=[DataDriftPreset()])
     report.run(reference_data=df_train, current_data=df_new)
@@ -58,12 +65,37 @@ def check_drift():
 def retrain_and_predict_model():
     db = Session()
     try:
-        records = db.query(CustomerPred).all()
+        records = db.query(CustomerPred).filter(CustomerPred.churn_real != None).all()
         df_new = pd.DataFrame([r.input_data for r in records])
-        df_new['Churn'] = [r.churn for r in records]
-        df_train = pd.read_csv('/opt/airflow/project/data/train_data.csv')
-        df_test = pd.read_csv('/opt/airflow/project/data/test_data.csv')
+        churn_col = [r.churn_real for r in records]
+        df_test = pd.read_csv('/opt/airflow/project/data/test_data_raw.csv')
+        cat_cols = ['gender', 'Partner', 'Dependents', 'PhoneService', 'MultipleLines', 
+                    'InternetService', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection',
+                    'TechSupport', 'StreamingTV', 'StreamingMovies', 'Contract', 
+                    'PaperlessBilling', 'PaymentMethod']
+        num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']
+        encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop='first')
+        df_train = pd.read_csv('/opt/airflow/project/data/train_data_raw.csv')
+        encoder.fit(df_train[cat_cols])
+        encoded_cols = num_cols + list(encoder.get_feature_names_out(cat_cols))
+        df_train_cat = encoder.transform(df_train[cat_cols])
+        df_train_num = df_train[num_cols].values
+        churn_train = df_train['Churn'].values 
+        df_train_encoded = np.hstack([df_train_num, df_train_cat])
+        df_train = pd.DataFrame(df_train_encoded, columns=encoded_cols)
+        df_train['Churn'] = churn_train
+        df_new_cat = encoder.transform(df_new[cat_cols])
+        df_new_num = df_new[num_cols].values
+        df_new_encoded = np.hstack([df_new_num, df_new_cat])
+        df_new = pd.DataFrame(df_new_encoded, columns=encoded_cols)
+        df_new['Churn'] = churn_col
         df = pd.concat([df_train, df_new], ignore_index=True)
+        churn_test = df_test['Churn'].values
+        df_test_cat = encoder.transform(df_test[cat_cols])
+        df_test_num = df_test[num_cols].values
+        df_test_encoded = np.hstack([df_test_num, df_test_cat])
+        df_test = pd.DataFrame(df_test_encoded, columns=encoded_cols)
+        df_test['Churn'] = churn_test
         X = df.drop('Churn', axis=1)
         y = df['Churn']
         X_test = df_test.drop('Churn',axis = 1)
@@ -98,10 +130,9 @@ def retrain_and_predict_model():
 @task
 def update_chunk():
     current_chunk = int(Variable.get("current_chunk", default_var=0))
-    while not os.path.exists(f"/opt/airflow/project/data/chunks/chunk_{current_chunk}.csv"):
-        Variable.set("current_chunk", current_chunk + 1)
-        if current_chunk > 9:
-            raise AirflowSkipException("All chunks processed!")
+    if not os.path.exists(f"/opt/airflow/project/data/chunks_raw/chunk_{current_chunk}.csv"):
+        raise AirflowSkipException("All chunks processed!")
+    Variable.set("current_chunk", current_chunk + 1)
 
 # Creating DAG Object
 @dag(
@@ -113,7 +144,7 @@ def update_chunk():
 
 def churn_pipeline():
     t1 = read_next_chunk()
-    t2 = load_to_postgres(t1)
+    t2 = simulate_ground_truth(t1)
     t3 = check_drift()
     t4 = retrain_and_predict_model()
     t5 = update_chunk()

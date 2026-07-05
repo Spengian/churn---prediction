@@ -13,7 +13,8 @@ Session = sessionmaker(engine)
 class CustomerPred(Base):
     __tablename__ = "customer_predictions_table"
     id = Column(Integer, primary_key=True)
-    churn = Column(Integer)
+    churn_pred = Column(Integer)
+    churn_real = Column(Integer, nullable = True)
     probability = Column(Float)
     timestamp = Column(DateTime, default=datetime.utcnow)
     input_data = Column(JSON)
