@@ -1,41 +1,0 @@
-[2026-07-02T23:05:54.371+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:48:00+00:00 [queued]>
-[2026-07-02T23:05:54.385+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:48:00+00:00 [queued]>
-[2026-07-02T23:05:54.386+0000] {taskinstance.py:2170} INFO - Starting attempt 2 of 2
-[2026-07-02T23:05:54.409+0000] {taskinstance.py:2191} INFO - Executing <Task(_PythonDecoratedOperator): retrain_and_predict_model> on 2026-07-02 22:48:00+00:00
-[2026-07-02T23:05:54.434+0000] {standard_task_runner.py:60} INFO - Started process 4890 to run task
-[2026-07-02T23:05:54.440+0000] {standard_task_runner.py:87} INFO - Running: ['airflow', 'tasks', 'run', 'churn_pipeline', 'retrain_and_predict_model', 'scheduled__2026-07-02T22:48:00+00:00', '--job-id', '107', '--raw', '--subdir', 'DAGS_FOLDER/churn_pipeline.py', '--cfg-path', '/tmp/tmpfhix6srj']
-[2026-07-02T23:05:54.444+0000] {standard_task_runner.py:88} INFO - Job 107: Subtask retrain_and_predict_model
-[2026-07-02T23:05:54.678+0000] {task_command.py:423} INFO - Running <TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:48:00+00:00 [running]> on host 6a33991eab85
-[2026-07-02T23:05:54.921+0000] {taskinstance.py:2480} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='churn_pipeline' AIRFLOW_CTX_TASK_ID='retrain_and_predict_model' AIRFLOW_CTX_EXECUTION_DATE='2026-07-02T22:48:00+00:00' AIRFLOW_CTX_TRY_NUMBER='2' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2026-07-02T22:48:00+00:00'
-[2026-07-02T23:05:57.938+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]
-[2026-07-02T23:05:58.254+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  20%|##        | 1/5 [00:00<00:01,  3.19it/s]
-[2026-07-02T23:05:58.255+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  20%|##        | 1/5 [00:00<00:01,  3.19it/s]
-[2026-07-02T23:05:58.657+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  40%|####      | 2/5 [00:00<00:01,  2.73it/s]
-[2026-07-02T23:05:58.659+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  40%|####      | 2/5 [00:00<00:01,  2.73it/s]
-[2026-07-02T23:05:58.662+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  60%|######    | 3/5 [00:00<00:00,  2.73it/s]
-[2026-07-02T23:05:58.690+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  80%|########  | 4/5 [00:00<00:00,  2.73it/s]
-[2026-07-02T23:05:58.894+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:00<00:00,  6.23it/s]
-[2026-07-02T23:05:58.897+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:00<00:00,  6.23it/s]
-[2026-07-02T23:05:58.898+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:00<00:00,  5.22it/s]
-[2026-07-02T23:05:59.491+0000] {logging_mixin.py:188} WARNING - 2026/07/02 23:05:59 WARNING mlflow.utils.git_utils: Failed to import Git (the Git executable is probably not on your PATH), so Git SHA is not available. Error: Failed to initialize: Bad git executable.
-The git executable must be specified in one of the following ways:
-    - be included in your $PATH
-    - be set via $GIT_PYTHON_GIT_EXECUTABLE
-    - explicitly set via git.refresh(<full-path-to-git-executable>)
-
-All git commands will error until this is rectified.
-
-This initial message can be silenced or aggravated in the future by setting the
-$GIT_PYTHON_REFRESH environment variable. Use one of the following values:
-    - quiet|q|silence|s|silent|none|n|0: for no message or exception
-    - warn|w|warning|log|l|1: for a warning message (logging level CRITICAL, displayed by default)
-    - error|e|exception|raise|r|2: for a raised exception
-
-Example:
-    export GIT_PYTHON_REFRESH=quiet
-[2026-07-02T23:06:21.050+0000] {local_task_job_runner.py:121} ERROR - Received SIGTERM. Terminating subprocesses
-[2026-07-02T23:06:21.113+0000] {process_utils.py:131} INFO - Sending 15 to group 4890. PIDs of all processes in the group: [4890]
-[2026-07-02T23:06:21.120+0000] {process_utils.py:86} INFO - Sending the signal 15 to group 4890
-[2026-07-02T23:06:21.170+0000] {taskinstance.py:2450} ERROR - Received SIGTERM. Terminating subprocesses.
-[2026-07-02T23:06:22.308+0000] {logging_mixin.py:188} WARNING - 2026/07/02 23:06:22 INFO mlflow.tracking._tracking_service.client: 🏃 View run nosy-crane-589 at: https://dagshub.com/Spengian/churn---prediction.mlflow/#/experiments/0/runs/532776d98a8e47389997b3a7d91245bf.
-[2026-07-02T23:06:22.319+0000] {logging_mixin.py:188} WARNING - 2026/07/02 23:06:22 INFO mlflow.tracking._tracking_service.client: 🧪 View experiment at: https://dagshub.com/Spengian/churn---prediction.mlflow/#/experiments/0.

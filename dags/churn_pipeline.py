@@ -17,6 +17,7 @@ from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset
 from sklearn.preprocessing import StandardScaler
 
+
 default_args = {
     'owner': 'airflow',
     'retries': 1,
@@ -56,48 +57,51 @@ def check_drift():
 @task
 def retrain_and_predict_model():
     db = Session()
-    records = db.query(CustomerPred).all()
-    df_new = pd.DataFrame([r.input_data for r in records])
-    df_new['Churn'] = [r.churn for r in records]
-    df_train = pd.read_csv('/opt/airflow/project/data/train_data.csv')
-    df_test = pd.read_csv('/opt/airflow/project/data/test_data.csv')
-    df = pd.concat([df_train, df_new], ignore_index=True)
-    X = df.drop('Churn', axis=1)
-    y = df['Churn']
-    X_test = df_test.drop('Churn',axis = 1)
-    y_test = df_test['Churn']
-    scaler = StandardScaler()
-    X_sc = scaler.fit_transform(X)
-    X_test_sc = scaler.transform(X_test)
-    os.environ["MLFLOW_TRACKING_URI"] = os.getenv("MLFLOW_TRACKING_URI")
-    os.environ["MLFLOW_TRACKING_USERNAME"] =  os.getenv("MLFLOW_TRACKING_USERNAME")
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("MLFLOW_TRACKING_PASSWORD")
-    mlflow.set_experiment("churn-prediction")
-    model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
-    with mlflow.start_run() as run:
-        model.fit(X_sc, y, eval_set=[(X_sc, y), (X_test_sc, y_test)], verbose=False)
-        y_pred = model.predict(X_test_sc)
-        mlflow.log_metric("recall_churn", recall_score(y_test, y_pred))
-        mlflow.log_metric("f1_churn", f1_score(y_test, y_pred))
-        mlflow.log_metric("precision_churn", precision_score(y_test, y_pred))
-        results = model.evals_result()
-        train_logloss = results['validation_0']['logloss']  # train
-        test_logloss = results['validation_1']['logloss']   # test  
-        for i, (tr, te) in enumerate(zip(train_logloss, test_logloss)):
-            if i % 25 == 0:
-                mlflow.log_metric("train_logloss", tr, step=i)
-                mlflow.log_metric("test_logloss", te, step=i)
-        mlflow.log_metric("final_logloss", train_logloss[-1])
-        current_chunk = int(Variable.get("current_chunk", default_var=0))
-        mlflow.xgboost.log_model(model, f"model_chunk_{current_chunk}")
-    db.close()
+    try:
+        records = db.query(CustomerPred).all()
+        df_new = pd.DataFrame([r.input_data for r in records])
+        df_new['Churn'] = [r.churn for r in records]
+        df_train = pd.read_csv('/opt/airflow/project/data/train_data.csv')
+        df_test = pd.read_csv('/opt/airflow/project/data/test_data.csv')
+        df = pd.concat([df_train, df_new], ignore_index=True)
+        X = df.drop('Churn', axis=1)
+        y = df['Churn']
+        X_test = df_test.drop('Churn',axis = 1)
+        y_test = df_test['Churn']
+        scaler = StandardScaler()
+        X_sc = scaler.fit_transform(X)
+        X_test_sc = scaler.transform(X_test)
+        os.environ["MLFLOW_TRACKING_URI"] = os.getenv("MLFLOW_TRACKING_URI")
+        os.environ["MLFLOW_TRACKING_USERNAME"] =  os.getenv("MLFLOW_TRACKING_USERNAME")
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("MLFLOW_TRACKING_PASSWORD")
+        mlflow.set_experiment("churn-prediction")
+        model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
+        with mlflow.start_run() as run:
+            model.fit(X_sc, y, eval_set=[(X_sc, y), (X_test_sc, y_test)], verbose=False)
+            y_pred = model.predict(X_test_sc)
+            mlflow.log_metric("recall_churn", recall_score(y_test, y_pred))
+            mlflow.log_metric("f1_churn", f1_score(y_test, y_pred))
+            mlflow.log_metric("precision_churn", precision_score(y_test, y_pred))
+            results = model.evals_result()
+            train_logloss = results['validation_0']['logloss']  # train
+            test_logloss = results['validation_1']['logloss']   # test  
+            for i, (tr, te) in enumerate(zip(train_logloss, test_logloss)):
+                if i % 25 == 0:
+                    mlflow.log_metric("train_logloss", tr, step=i)
+                    mlflow.log_metric("test_logloss", te, step=i)
+            mlflow.log_metric("final_logloss", train_logloss[-1])
+            current_chunk = int(Variable.get("current_chunk", default_var=0))
+            mlflow.xgboost.log_model(model, f"model_chunk_{current_chunk}")
+    finally:
+        db.close()
 
 @task
 def update_chunk():
     current_chunk = int(Variable.get("current_chunk", default_var=0))
-    if not os.path.exists(f"/opt/airflow/project/data/chunks/chunk_{current_chunk}.csv"):
-        raise AirflowSkipException("All chunks processed!")
-    Variable.set("current_chunk", current_chunk + 1)
+    while not os.path.exists(f"/opt/airflow/project/data/chunks/chunk_{current_chunk}.csv"):
+        Variable.set("current_chunk", current_chunk + 1)
+        if current_chunk > 9:
+            raise AirflowSkipException("All chunks processed!")
 
 # Creating DAG Object
 @dag(

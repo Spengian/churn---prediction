@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
 import os
+import joblib 
 
 file_path = r"C:\Users\spegi\OneDrive\Documents\Churn\data\WA_Fn-UseC_-Telco-Customer-Churn.csv"
 
@@ -36,7 +37,8 @@ X_new_categorical = X_new[cat_cols]
 X_new_numerical = X_new[num_cols]
 
 # fit τον encoder στο training data
-encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop = "first")
+# encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop = "first")
+encoder = joblib.load('models/encoder.pkl')
 X_train_encoded = encoder.fit_transform(X_train_categorical)
 X_temp_encoded = encoder.transform(X_temp_categorical)
 X_test_encoded = encoder.transform(X_test_categorical)
