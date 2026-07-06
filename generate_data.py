@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
 import os
+import joblib 
 
 file_path = r"C:\Users\spegi\OneDrive\Documents\Churn\data\WA_Fn-UseC_-Telco-Customer-Churn.csv"
 
@@ -36,7 +37,8 @@ X_new_categorical = X_new[cat_cols]
 X_new_numerical = X_new[num_cols]
 
 # fit τον encoder στο training data
-encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop = "first")
+# encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop = "first")
+encoder = joblib.load('models/encoder.pkl')
 X_train_encoded = encoder.fit_transform(X_train_categorical)
 X_temp_encoded = encoder.transform(X_temp_categorical)
 X_test_encoded = encoder.transform(X_test_categorical)
@@ -75,3 +77,23 @@ train_data.to_csv(f'data/train_data.csv', index = False)
 test_data = pd.DataFrame(X_test_final, columns=encoded_cols)
 test_data['Churn'] = y_test.values
 test_data.to_csv(f'data/test_data.csv', index = False)
+
+os.makedirs('data/chunks_raw', exist_ok=True)
+
+chunks_X_raw = np.array_split(X_new, 10)
+chunks_y_raw = np.array_split(y_new.values, 10)
+
+for i, (chunk_x, chunk_y) in enumerate(zip(chunks_X_raw, chunks_y_raw)):
+    chunk_df = pd.DataFrame(chunk_x)
+    chunk_df['Churn'] = chunk_y
+    chunk_df.to_csv(f'data/chunks_raw/chunk_{i}.csv', index=False)
+
+print("Raw chunks saved!")
+
+train_data_raw = X_train.copy()
+train_data_raw['Churn'] = y_train.values
+train_data_raw.to_csv('data/train_data_raw.csv', index=False)
+
+test_data_raw = X_test.copy()
+test_data_raw['Churn'] = y_test.values
+test_data_raw.to_csv('data/test_data_raw.csv', index=False)

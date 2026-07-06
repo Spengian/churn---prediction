@@ -1,43 +1,0 @@
-[2026-07-02T22:23:23.767+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=non-requeueable deps ti=<TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:18:00+00:00 [queued]>
-[2026-07-02T22:23:23.783+0000] {taskinstance.py:1956} INFO - Dependencies all met for dep_context=requeueable deps ti=<TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:18:00+00:00 [queued]>
-[2026-07-02T22:23:23.784+0000] {taskinstance.py:2170} INFO - Starting attempt 1 of 2
-[2026-07-02T22:23:23.799+0000] {taskinstance.py:2191} INFO - Executing <Task(_PythonDecoratedOperator): retrain_and_predict_model> on 2026-07-02 22:18:00+00:00
-[2026-07-02T22:23:23.819+0000] {standard_task_runner.py:60} INFO - Started process 1215 to run task
-[2026-07-02T22:23:23.826+0000] {standard_task_runner.py:87} INFO - Running: ['airflow', 'tasks', 'run', 'churn_pipeline', 'retrain_and_predict_model', 'scheduled__2026-07-02T22:18:00+00:00', '--job-id', '30', '--raw', '--subdir', 'DAGS_FOLDER/churn_pipeline.py', '--cfg-path', '/tmp/tmp1erhpqph']
-[2026-07-02T22:23:23.830+0000] {standard_task_runner.py:88} INFO - Job 30: Subtask retrain_and_predict_model
-[2026-07-02T22:23:23.954+0000] {task_command.py:423} INFO - Running <TaskInstance: churn_pipeline.retrain_and_predict_model scheduled__2026-07-02T22:18:00+00:00 [running]> on host 6a33991eab85
-[2026-07-02T22:23:24.096+0000] {taskinstance.py:2480} INFO - Exporting env vars: AIRFLOW_CTX_DAG_OWNER='airflow' AIRFLOW_CTX_DAG_ID='churn_pipeline' AIRFLOW_CTX_TASK_ID='retrain_and_predict_model' AIRFLOW_CTX_EXECUTION_DATE='2026-07-02T22:18:00+00:00' AIRFLOW_CTX_TRY_NUMBER='1' AIRFLOW_CTX_DAG_RUN_ID='scheduled__2026-07-02T22:18:00+00:00'
-[2026-07-02T22:23:25.895+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:   0%|          | 0/5 [00:00<?, ?it/s]
-[2026-07-02T22:23:26.227+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  20%|##        | 1/5 [00:00<00:01,  3.05it/s]
-[2026-07-02T22:23:26.229+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  20%|##        | 1/5 [00:00<00:01,  3.05it/s]
-[2026-07-02T22:23:26.733+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  40%|####      | 2/5 [00:00<00:01,  2.31it/s]
-[2026-07-02T22:23:26.742+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  40%|####      | 2/5 [00:00<00:01,  2.31it/s]
-[2026-07-02T22:23:26.748+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  60%|######    | 3/5 [00:00<00:00,  2.31it/s]
-[2026-07-02T22:23:26.750+0000] {logging_mixin.py:188} WARNING - Downloading artifacts:  80%|########  | 4/5 [00:00<00:00,  2.31it/s]
-[2026-07-02T22:23:26.952+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:01<00:00,  5.71it/s]
-[2026-07-02T22:23:26.954+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:01<00:00,  5.71it/s]
-[2026-07-02T22:23:26.956+0000] {logging_mixin.py:188} WARNING - Downloading artifacts: 100%|##########| 5/5 [00:01<00:00,  4.73it/s]
-[2026-07-02T22:23:27.535+0000] {logging_mixin.py:188} WARNING - 2026/07/02 22:23:27 WARNING mlflow.utils.git_utils: Failed to import Git (the Git executable is probably not on your PATH), so Git SHA is not available. Error: Failed to initialize: Bad git executable.
-The git executable must be specified in one of the following ways:
-    - be included in your $PATH
-    - be set via $GIT_PYTHON_GIT_EXECUTABLE
-    - explicitly set via git.refresh(<full-path-to-git-executable>)
-
-All git commands will error until this is rectified.
-
-This initial message can be silenced or aggravated in the future by setting the
-$GIT_PYTHON_REFRESH environment variable. Use one of the following values:
-    - quiet|q|silence|s|silent|none|n|0: for no message or exception
-    - warn|w|warning|log|l|1: for a warning message (logging level CRITICAL, displayed by default)
-    - error|e|exception|raise|r|2: for a raised exception
-
-Example:
-    export GIT_PYTHON_REFRESH=quiet
-[2026-07-02T22:23:31.936+0000] {logging_mixin.py:188} WARNING - /home/airflow/.local/lib/python3.8/site-packages/xgboost/core.py:158 UserWarning: [22:23:31] WARNING: /workspace/src/c_api/c_api.cc:1374: Saving model in the UBJSON format as default.  You can use file extension: `json`, `ubj` or `deprecated` to choose between formats.
-[2026-07-02T22:23:42.187+0000] {logging_mixin.py:188} WARNING - 2026/07/02 22:23:42 WARNING mlflow.models.model: Model logged without a signature and input ***. Please set `input_***` parameter when logging the model to auto infer the model signature.
-[2026-07-02T22:23:45.022+0000] {logging_mixin.py:188} WARNING - 2026/07/02 22:23:45 INFO mlflow.tracking._tracking_service.client: 🏃 View run puzzled-duck-700 at: https://dagshub.com/Spengian/churn---prediction.mlflow/#/experiments/0/runs/9a346f1a97904039b935ca4b7c799e5e.
-[2026-07-02T22:23:45.025+0000] {logging_mixin.py:188} WARNING - 2026/07/02 22:23:45 INFO mlflow.tracking._tracking_service.client: 🧪 View experiment at: https://dagshub.com/Spengian/churn---prediction.mlflow/#/experiments/0.
-[2026-07-02T22:23:45.352+0000] {python.py:201} INFO - Done. Returned value was: None
-[2026-07-02T22:23:45.408+0000] {taskinstance.py:1138} INFO - Marking task as SUCCESS. dag_id=churn_pipeline, task_id=retrain_and_predict_model, execution_date=20260702T221800, start_date=20260702T222323, end_date=20260702T222345
-[2026-07-02T22:23:45.570+0000] {local_task_job_runner.py:234} INFO - Task exited with return code 0
-[2026-07-02T22:23:45.692+0000] {taskinstance.py:3280} INFO - 1 downstream tasks scheduled from follow-on schedule check

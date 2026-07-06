@@ -1,5 +1,9 @@
 from fastapi.testclient import TestClient
 from main import app
+from database import Base, engine
+
+def setup_module():
+    Base.metadata.create_all(bind=engine)
 
 client = TestClient(app)
 
@@ -97,18 +101,23 @@ json_file_batch = {
 def test_predict():
     response = client.post("/predict", json = json_file)   
     assert response.status_code == 201    
-    assert response.json()["Churn"] in [0,1]
+    assert response.json()["churn_pred"] in [0,1]
+    assert response.json()["churn_real"] is None
     assert 0 <= response.json()["probability"] <= 1
+    assert "id" in response.json()
 
 def test_predict_batch():
     response = client.post("/predict/batch", json = json_file_batch)   
     assert response.status_code == 201
     assert "result" in response.json()
     for customer in response.json()["result"]:
-        assert customer["Churn"] in [0,1]
+        assert customer["churn_pred"] in [0,1]
+        assert customer["churn_real"] is None
         assert 0 <= customer["probability"] <= 1
+        assert "id" in customer
 
 def test_get_predictions():
     response = client.get("/predictions") 
     assert response.status_code == 200  
     assert "customers" in response.json()
+
