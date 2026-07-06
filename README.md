@@ -75,6 +75,7 @@ Evidently (Drift Detection) + SHAP (Explainability)
 |--------|----------|-------------|
 | POST | `/predict` | Single customer prediction + SHAP top 2 features |
 | POST | `/predict/batch` | Batch predictions + SHAP top 2 features per customer |
+| PATCH | `/predictions/batch/churn` | Batch update ground truth labels |
 | GET | `/health` | Health check |
 | GET | `/predictions` | All stored predictions |
 | GET | `/metrics` | Prometheus metrics |
@@ -83,7 +84,9 @@ Evidently (Drift Detection) + SHAP (Explainability)
 
 ```json
 {
-  "Churn": 1,
+  "id": 1,
+  "churn_pred": 1,
+  "churn_real": null,
   "probability": 0.878,
   "input_data": { ... },
   "top_features": {
@@ -102,16 +105,19 @@ Full interactive documentation available at `/docs` (Swagger UI).
 The `churn_pipeline` DAG runs every 3 minutes and processes 10 chunks of new data sequentially:
 
 ```
-read_next_chunk → load_to_postgres → check_drift → retrain_and_predict_model → update_chunk
+read_next_chunk → simulate_ground_truth → check_drift → retrain_and_predict_model → update_chunk
 ```
 
 | Task | Description |
 |------|-------------|
-| `read_next_chunk` | Reads the next CSV chunk from `data/chunks/` using an Airflow Variable as counter |
-| `load_to_postgres` | Stores new customer data in PostgreSQL |
-| `check_drift` | Runs Evidently DataDrift report (train vs all new data) and saves HTML |
-| `retrain_and_predict_model` | Retrains XGBoost on train + new data, evaluates on fixed test set, logs to DagsHub |
+| `read_next_chunk` | Reads the next raw CSV chunk path from `data/chunks_raw/` using an Airflow Variable as counter |
+| `simulate_ground_truth` | Sends chunk to `/predict/batch` API → stores predictions with `churn_real=null` → updates ground truth via `PATCH /predictions/batch/churn` |
+| `check_drift` | Runs Evidently DataDrift report (raw train vs all new data with confirmed labels) and saves HTML |
+| `retrain_and_predict_model` | Retrains XGBoost on train + confirmed data (`churn_real IS NOT NULL`), evaluates on fixed test set, logs to DagsHub |
 | `update_chunk` | Increments chunk counter; stops automatically when all chunks are processed |
+
+### Ground Truth Simulation
+In real production, ground truth labels (whether a customer actually churned) arrive weeks or months after the initial prediction. This pipeline simulates that delay: the API first stores predictions with `churn_real=null`, then the Airflow task updates the real label via `PATCH` — mimicking the delayed label arrival pattern.
 
 ### MLflow Metrics per Run
 - `recall_churn`, `f1_churn`, `precision_churn`
@@ -126,6 +132,7 @@ Churn/
 ├── main.py                 # FastAPI application + SHAP explainability
 ├── database.py             # SQLAlchemy models & DB connection
 ├── Dockerfile              # Production image definition
+├── Dockerfile.airflow      # Custom Airflow image with pre-installed packages
 ├── docker-compose.yaml     # Local dev: API + PostgreSQL + Prometheus + Grafana + Airflow
 ├── requirements.txt
 ├── test_main.py            # pytest integration tests
@@ -140,9 +147,9 @@ Churn/
 │   └── scaler.pkl
 ├── data/
 │   ├── WA_Fn-UseC_-Telco-Customer-Churn.csv
-│   ├── train_data.csv
-│   ├── test_data.csv
-│   └── chunks/             # 10 CSV chunks for Airflow
+│   ├── train_data_raw.csv
+│   ├── test_data_raw.csv
+│   └── chunks_raw/         # 10 raw CSV chunks for Airflow simulate_ground_truth task
 ├── reports/                # Evidently HTML drift reports
 └── .github/
     └── workflows/
@@ -161,9 +168,13 @@ Churn/
 
 **SHAP for local explainability:** Each prediction returns the top 2 features that most influenced the result, using SHAP TreeExplainer. This gives actionable insight — e.g. "this customer is predicted to churn mainly due to Month-to-month contract and high monthly charges".
 
+**Ground truth via PATCH endpoints:** Predictions are stored with `churn_real=null` at inference time. Ground truth labels are added later via `PATCH /predictions/{id}/churn`, simulating the real-world delay between prediction and outcome. Retraining only uses records with confirmed labels (`churn_real IS NOT NULL`).
+
 **Fixed test set for retraining evaluation:** During Airflow retraining, the model is always evaluated on the same 15% test set. This allows fair comparison of metrics across runs as new data chunks are added.
 
 **Overfitting detection via logloss curves:** Each Airflow run logs `train_logloss` and `test_logloss` per iteration to MLflow. If train loss drops while test loss rises, overfitting is occurring — visible directly in DagsHub.
+
+**Custom Airflow Docker image:** Instead of installing packages at runtime via `_PIP_ADDITIONAL_REQUIREMENTS` (which reinstalls on every container restart), a custom `Dockerfile.airflow` pre-installs all dependencies at build time.
 
 **Docker Compose for local use only:** Railway runs only the image built from the Dockerfile; Docker Compose is used exclusively for local development, to coordinate the API, PostgreSQL, Prometheus, Grafana, and Airflow together.
 
@@ -222,14 +233,12 @@ Railway auto-detects new image → redeploys
 ## Known Limitations & Next Steps
 
 - [ ] Auto-promote retrained model to Railway after each Airflow run
-- [ ] Ground truth delay simulation: chunks already have Churn labels — in real production, labels arrive weeks/months later
-- [ ] Airflow writes directly to the database instead of going through the `/predict/batch` endpoint
+- [ ] No champion/challenger model evaluation: the retrained model is logged to DagsHub but never automatically promoted to Production. A proper implementation would compare the new model against the current production model using statistical significance testing (e.g. bootstrap on recall) before promoting.
+- [ ] Recall drops significantly after retraining (~0.83 → ~0.55). The exact cause is unclear — data, scaling, and early stopping have been ruled out. Under investigation.
 - [ ] PostgreSQL service in CI for full environment parity with production
 - [ ] Versioned Docker image tags instead of `latest` (for rollback capability)
 - [ ] Alerting on pipeline task failure
 - [ ] Frontend (Streamlit or React)
-- [ ] Recall drops significantly after retraining (~0.83 → ~0.55). The exact cause is unclear — data, scaling, and early stopping have been ruled out. Under investigation.
-- [ ] **No champion/challenger model evaluation:** The retrained model is logged to DagsHub but never automatically promoted to Production. A proper implementation would compare the new model against the current production model using statistical significance testing (e.g. bootstrap on recall) before promoting.
 
 ---
 
