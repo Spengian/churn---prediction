@@ -7,6 +7,21 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+          postgres:
+            image: postgres
+            env:
+              POSTGRES_PASSWORD: example
+              POSTGRES_USER: example
+              POSTGRES_DB: example
+            ports:
+              - 5432:5432
+            options: >-
+              --health-cmd pg_isready
+              --health-interval 10s
+              --health-timeout 5s
+              --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -26,7 +41,7 @@ jobs:
           pip install -r requirements.txt
       - name: Test with pytest
         env:
-          DATABASE_URL: sqlite:///./test.db
+          DATABASE_URL: postgresql://example:example@localhost:5432/example
         run: pytest test_main.py -v
 
       - name: Login to Docker Hub
