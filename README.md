@@ -235,7 +235,6 @@ Railway auto-detects new image → redeploys
 - [ ] Auto-promote retrained model to Railway after each Airflow run
 - [ ] No champion/challenger model evaluation: the retrained model is logged to DagsHub but never automatically promoted to Production. A proper implementation would compare the new model against the current production model using statistical significance testing (e.g. bootstrap on recall) before promoting.
 - [ ] Recall drops significantly after retraining (~0.83 → ~0.55). The exact cause is unclear — data, scaling, and early stopping have been ruled out. Under investigation.
-- [ ] PostgreSQL service in CI for full environment parity with production
 - [ ] Versioned Docker image tags instead of `latest` (for rollback capability)
 - [ ] Alerting on pipeline task failure
 - [ ] Frontend (Streamlit or React)
