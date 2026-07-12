@@ -12,20 +12,32 @@ import os
 from prometheus_fastapi_instrumentator import Instrumentator
 import shap
 from typing import Optional
+from apscheduler.schedulers.background import BackgroundScheduler
+
+def reload_model():
+    global model, explainer
+    try:
+        model = mlflow.xgboost.load_model("models:/model_scale_pos_5@champion")
+    except Exception:
+        model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
+    explainer = shap.TreeExplainer(model)
 
 os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
 os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
 os.environ["MLFLOW_TRACKING_PASSWORD"] = os.getenv("DAGSHUB_TOKEN", "")
-model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
 scaler = joblib.load('models/scaler.pkl')
 encoder = joblib.load('models/encoder.pkl')
-explainer = shap.TreeExplainer(model)
+reload_model() 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(reload_model, 'interval', minutes=3)
+    scheduler.start()
     yield
     # εδώ γίνεται το shutdown
+    scheduler.shutdown()
 
 app = FastAPI(lifespan=lifespan)
 

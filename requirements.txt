@@ -13,3 +13,4 @@ dagshub
 mlflow
 prometheus-fastapi-instrumentator
 shap
+apscheduler
