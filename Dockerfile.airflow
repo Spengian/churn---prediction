@@ -1,2 +1,2 @@
 FROM apache/airflow:2.8.1
-RUN pip install mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7
+RUN pip install mlflow dagshub scikit-learn xgboost pandas psycopg2-binary sqlalchemy==1.4.46 numpy>=1.24 evidently==0.6.7 statsmodels
