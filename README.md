@@ -239,6 +239,8 @@ Railway auto-detects new image → redeploys
 - [x] ~~Recall drops significantly after retraining (~0.83 → ~0.55)~~ — root cause identified and fixed. See [Debugging the Recall Drop](#debugging-the-recall-drop) below.
 - [ ] Versioned Docker image tags instead of `latest` (for rollback capability)
 - [x] ~~Alerting on pipeline task failure~~ — a basic `on_failure_callback` placeholder is now wired into every task via `default_args`. In a real production environment this would post to a Slack webhook instead of just logging.
+- [ ] Prometheus metrics are exposed but no custom Grafana dashboards or alerting rules have been built yet.
+- [ ] Νo unit tests, integration tests are limited.
 - [ ] Frontend (Streamlit or React)
 
 ---
