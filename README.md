@@ -102,10 +102,10 @@ Full interactive documentation available at `/docs` (Swagger UI).
 
 ## Airflow Pipeline (Level 2)
 
-The `churn_pipeline` DAG runs every 3 minutes and processes 10 chunks of new data sequentially:
+The `churn_pipeline` DAG runs every 3 minutes and processes 10 chunks of new data sequentially (`max_active_runs=1` to prevent overlapping runs from racing on the chunk counter):
 
 ```
-read_next_chunk → simulate_ground_truth → check_drift → retrain_and_predict_model → update_chunk
+read_next_chunk → simulate_ground_truth → check_drift → retrain_and_predict_model → champion_vs_challenger → update_chunk
 ```
 
 | Task | Description |
@@ -113,7 +113,8 @@ read_next_chunk → simulate_ground_truth → check_drift → retrain_and_predic
 | `read_next_chunk` | Reads the next raw CSV chunk path from `data/chunks_raw/` using an Airflow Variable as counter |
 | `simulate_ground_truth` | Sends chunk to `/predict/batch` API → stores predictions with `churn_real=null` → updates ground truth via `PATCH /predictions/batch/churn` |
 | `check_drift` | Runs Evidently DataDrift report (raw train vs all new data with confirmed labels) and saves HTML |
-| `retrain_and_predict_model` | Retrains XGBoost on train + confirmed data (`churn_real IS NOT NULL`), evaluates on fixed test set, logs to DagsHub |
+| `retrain_and_predict_model` | Incrementally retrains XGBoost on train + confirmed data (`churn_real IS NOT NULL`), with a periodic full reset above a tree-count cap. Evaluates on a fixed test set, logs to DagsHub. Tracks the latest model URI in an Airflow Variable so retraining builds on the previous run instead of always restarting from the original model. |
+| `champion_vs_challenger` | Statistically compares the new model against production using McNemar's test; promotes via MLflow registry alias if significantly better |
 | `update_chunk` | Increments chunk counter; stops automatically when all chunks are processed |
 
 ### Ground Truth Simulation
@@ -140,6 +141,7 @@ Churn/
 ├── generate_data.py        # Data splits + chunk generation for Airflow
 ├── dags/
 │   ├── churn_pipeline.py   # Airflow DAG
+│   ├── preprocessing.py    # Shared encoder/scaler preprocessing (used by retraining + evaluation)
 │   └── database_airflow.py # SQLAlchemy models for Airflow (compatible with Python 3.8)
 ├── models/
 │   ├── churn_model.pkl
@@ -164,7 +166,7 @@ Churn/
 
 **Recall as the primary metric:** In a churn problem, the cost of missing a customer who would actually leave is higher than the cost of an unnecessary retention offer — so the model was optimized for recall on the churn class, with a conscious trade-off in precision.
 
-**Loading the model from a Registry, not a static file:** The API loads the model directly from the MLflow Model Registry (`models:/model_scale_pos_5/1`) at startup. Switching the production model is done from the DagsHub UI, with no code change or new deployment required.
+**Automated model promotion, no manual switching:** The API loads the model via a `@champion` MLflow alias, refreshed live every few minutes by a background scheduler. Promotion is fully automated by the `champion_vs_challenger` Airflow task — no manual DagsHub UI interaction or redeploy is needed to switch production models.
 
 **SHAP for local explainability:** Each prediction returns the top 2 features that most influenced the result, using SHAP TreeExplainer. This gives actionable insight — e.g. "this customer is predicted to churn mainly due to Month-to-month contract and high monthly charges".
 
@@ -178,7 +180,7 @@ Churn/
 
 **Docker Compose for local use only:** Railway runs only the image built from the Dockerfile; Docker Compose is used exclusively for local development, to coordinate the API, PostgreSQL, Prometheus, Grafana, and Airflow together.
 
-**Integration tests on SQLite:** CI tests run against SQLite for simplicity and speed. Known limitation: this doesn't give full parity with the production environment.
+**Integration tests on PostgreSQL:** CI runs a PostgreSQL service alongside the test suite (instead of SQLite), giving full parity with the production database engine and catching engine-specific issues (e.g. type handling, constraints) that SQLite would silently miss.
 
 ---
 
@@ -233,11 +235,42 @@ Railway auto-detects new image → redeploys
 ## Known Limitations & Next Steps
 
 - [ ] Auto-promote retrained model to Railway after each Airflow run
-- [ ] No champion/challenger model evaluation: the retrained model is logged to DagsHub but never automatically promoted to Production. A proper implementation would compare the new model against the current production model using statistical significance testing (e.g. bootstrap on recall) before promoting.
-- [ ] Recall drops significantly after retraining (~0.83 → ~0.55). The exact cause is unclear — data, scaling, and early stopping have been ruled out. Under investigation.
+- [x] ~~No champion/challenger model evaluation~~ — implemented: retrained models are now statistically compared against production using McNemar's test before promotion. See [Champion/Challenger System](#championchallenger-system) below.
+- [x] ~~Recall drops significantly after retraining (~0.83 → ~0.55)~~ — root cause identified and fixed. See [Debugging the Recall Drop](#debugging-the-recall-drop) below.
 - [ ] Versioned Docker image tags instead of `latest` (for rollback capability)
-- [ ] Alerting on pipeline task failure
+- [x] ~~Alerting on pipeline task failure~~ — a basic `on_failure_callback` placeholder is now wired into every task via `default_args`. In a real production environment this would post to a Slack webhook instead of just logging.
 - [ ] Frontend (Streamlit or React)
+
+---
+
+## Debugging the Recall Drop
+
+Early versions of the pipeline showed a sharp recall drop after retraining (~0.86 in production vs ~0.55 in Airflow). Investigation uncovered three separate, compounding issues:
+
+1. **The API never loaded the retrained model.** `retrain_and_predict_model` logged a new model to MLflow every run, but the API always loaded a hardcoded `models:/model_scale_pos_5/1`. The "0.86 vs 0.55" comparison was effectively comparing two unrelated models evaluated on different data — not a real before/after.
+2. **Training was always from scratch.** Every run called `mlflow.xgboost.load_model(...)` and then `.fit()` **without** `xgb_model=`, silently discarding all prior tuning and starting with random tree initialization each time.
+3. **`scale_pos_weight` was static.** The class-imbalance weighting was never recalculated as new data was added, so it drifted out of sync with the actual class ratio over time.
+
+**Fix:** incremental training (`xgb_model=model.get_booster()`) with a small number of new trees per run, a periodic full reset once a tree-count cap is reached (retrained on all accumulated data with a freshly computed `scale_pos_weight`), and live model refresh in the API via a background scheduler (see below).
+
+### A second, subtler bug: `best_iteration` masking predictions
+
+After fixing the above, the challenger model still produced **identical** predictions to the champion on every single test sample, even though tree counts clearly differed. Root cause: `eval_set` triggers XGBoost's `best_iteration` tracking automatically, and `model.predict()` silently only uses trees up to that point — so newly added trees were being computed (non-zero gain, confirmed via `trees_to_dataframe()`) but never actually used at inference time. Fixed with explicit `early_stopping_rounds` + `iteration_range=(0, model.best_iteration + 1)` on prediction calls.
+
+## Champion/Challenger System
+
+Retraining alone doesn't guarantee an improvement, so every retrained model ("challenger") is statistically compared against the current production model ("champion") before being promoted:
+
+1. Both models predict on the same fixed 15% test set.
+2. Predictions are compared pairwise per sample, producing a 2x2 contingency table of agreements/disagreements.
+3. **McNemar's test** (`statsmodels`) is used instead of a plain recall comparison, because both models are evaluated on the exact same paired samples — the disagreement cells are what matters statistically, not just the raw recall difference.
+4. Promotion (`mlflow.register_model` + `@champion` alias) only happens if the difference is statistically significant (p < 0.05) **and** the challenger's recall is higher.
+
+**Note:** on this project's demo dataset, no meaningful drift exists between the training data and incoming chunks — so the challenger correctly ends up statistically indistinguishable from the champion in most runs, and promotion (correctly) doesn't happen. This isn't a bug in the pipeline; it's the pipeline correctly recognizing there's nothing genuinely new to learn from the data available.
+
+## Live Model Reload (no redeploy needed)
+
+The API refreshes its model, scaler-dependent explainer, and encoder periodically (every 3 minutes, via `APScheduler`) by re-reading the `@champion` MLflow alias, instead of only loading the model once at startup. This decouples the ML model lifecycle from the application deployment lifecycle: a new champion can be promoted by Airflow and picked up by the live API without any Docker rebuild, image push, or Railway redeploy.
 
 ---
 
