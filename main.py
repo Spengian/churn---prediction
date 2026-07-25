@@ -13,14 +13,19 @@ from prometheus_fastapi_instrumentator import Instrumentator
 import shap
 from typing import Optional
 from apscheduler.schedulers.background import BackgroundScheduler
+from sharedfunc import sharedfunc
+import threading
+
+lock = threading.Lock()
 
 def reload_model():
     global model, explainer
-    try:
-        model = mlflow.xgboost.load_model("models:/model_scale_pos_5@champion")
-    except Exception:
-        model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
-    explainer = shap.TreeExplainer(model)
+    with lock:
+        try:
+            model = mlflow.xgboost.load_model("models:/model_scale_pos_5@champion")
+        except Exception:
+            model = mlflow.xgboost.load_model("models:/model_scale_pos_5/1")
+        explainer = shap.TreeExplainer(model)
 
 os.environ["MLFLOW_TRACKING_URI"] = "https://dagshub.com/Spengian/churn---prediction.mlflow"
 os.environ["MLFLOW_TRACKING_USERNAME"] = "Spengian"
@@ -79,26 +84,17 @@ class BatchOutput(BaseModel):
 class ChurnBatchUpdate(BaseModel):
     updates: list[dict]
 
-encode_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges', 'gender_Male', 'Partner_Yes', 'Dependents_Yes', 'PhoneService_Yes', 'MultipleLines_No phone service', 'MultipleLines_Yes', 'InternetService_Fiber optic', 'InternetService_No', 'OnlineSecurity_No internet service', 'OnlineSecurity_Yes', 'OnlineBackup_No internet service', 'OnlineBackup_Yes', 'DeviceProtection_No internet service', 'DeviceProtection_Yes', 'TechSupport_No internet service', 'TechSupport_Yes', 'StreamingTV_No internet service', 'StreamingTV_Yes', 'StreamingMovies_No internet service', 'StreamingMovies_Yes', 'Contract_One year', 'Contract_Two year', 'PaperlessBilling_Yes', 'PaymentMethod_Credit card (automatic)', 'PaymentMethod_Electronic check', 'PaymentMethod_Mailed check']
-
 @app.post("/predict", status_code=201, response_model= CustomerOutput)
 def data_input(input : CustomerInput, db: Session = Depends(get_db)):
     df_input = pd.DataFrame([input.model_dump()])
-    cat_cols = df_input.select_dtypes(include='object').columns.tolist()
-    num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
-    df_categ = df_input[cat_cols]
-    df_num = df_input[num_cols]
-    encoded_df_categ = encoder.transform(df_categ)
-    df_final = np.hstack([df_num.values, encoded_df_categ])
-    df_final_scaled = scaler.transform(df_final)
-    shap_values = explainer.shap_values(df_final_scaled)
-    feature_names = np.array(encode_cols)
+    with lock:
+        local_model = model
+        local_explainer = explainer
+    predictions, prediction_proba, shap_values, feature_names = sharedfunc(df_input, encoder, scaler, local_model, local_explainer)
     top_indices = np.argsort(np.abs(shap_values[0]))[-2:][::-1]
     top_features = feature_names[top_indices]
     top_shap_values = shap_values[0][top_indices]
     top_features_dict = dict(zip(top_features.tolist(), top_shap_values.tolist()))
-    predictions = model.predict(df_final_scaled)
-    prediction_proba = model.predict_proba(df_final_scaled) 
     new_pred = CustomerPred(churn_pred = int(predictions[0]),
                             churn_real = None, 
                             probability = float(prediction_proba[0][1]),
@@ -118,17 +114,10 @@ def data_input(input : CustomerInput, db: Session = Depends(get_db)):
 @app.post("/predict/batch", status_code=201, response_model= BatchOutput)
 def batch_input(input : BatchInput, db: Session = Depends(get_db)):
     df_input = pd.DataFrame([c.model_dump() for c in input.customers])
-    cat_cols = df_input.select_dtypes(include='object').columns.tolist()
-    num_cols = ['SeniorCitizen', 'tenure', 'MonthlyCharges']    
-    df_categ = df_input[cat_cols]
-    df_num = df_input[num_cols]
-    encoded_df_categ = encoder.transform(df_categ)
-    df_final = np.hstack([df_num.values, encoded_df_categ])
-    df_final_scaled = scaler.transform(df_final)
-    shap_values = explainer.shap_values(df_final_scaled)
-    feature_names = np.array(encode_cols)
-    predictions = model.predict(df_final_scaled)
-    prediction_proba = model.predict_proba(df_final_scaled)
+    with lock:
+            local_model = model
+            local_explainer = explainer
+    predictions, prediction_proba, shap_values, feature_names = sharedfunc(df_input, encoder, scaler, local_model, local_explainer)
     top_features_list = []
     ids_list = []
     for i, (pred, proba, inp) in enumerate(zip(predictions,prediction_proba[:,1], input.customers)):
