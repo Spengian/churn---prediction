@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, Depends, HTTPException
 import joblib 
 import pandas as pd 
@@ -11,7 +11,7 @@ import mlflow
 import os 
 from prometheus_fastapi_instrumentator import Instrumentator
 import shap
-from typing import Optional
+from typing import Optional, Literal
 from apscheduler.schedulers.background import BackgroundScheduler
 from sharedfunc import sharedfunc
 import threading
@@ -48,24 +48,24 @@ app = FastAPI(lifespan=lifespan)
 
 Instrumentator().instrument(app).expose(app)
 class CustomerInput(BaseModel):
-    gender           :  str
-    SeniorCitizen    :  int
-    Partner          :  str
-    Dependents       :  str
-    tenure           :  int
-    PhoneService     :  str
-    MultipleLines    :  str
-    InternetService  :  str
-    OnlineSecurity   :  str
-    OnlineBackup     :  str
-    DeviceProtection :  str
-    TechSupport      :  str
-    StreamingTV      :  str
-    StreamingMovies  :  str
-    Contract         :  str
-    PaperlessBilling :  str
-    PaymentMethod    :  str
-    MonthlyCharges   :  float
+    gender           :  Literal["Male", "Female"]
+    SeniorCitizen    :  Literal[0, 1]
+    Partner          :  Literal["Yes", "No"]
+    Dependents       :  Literal["Yes", "No"]
+    tenure           :  int = Field(ge=0)
+    PhoneService     :  Literal["Yes", "No"]
+    MultipleLines    :  Literal["Yes", "No", "No phone service"]
+    InternetService  :  Literal["DSL", "Fiber optic", "No"]
+    OnlineSecurity   :  Literal["Yes", "No", "No internet service"]
+    OnlineBackup     :  Literal["Yes", "No", "No internet service"]
+    DeviceProtection :  Literal["Yes", "No", "No internet service"]
+    TechSupport      :  Literal["Yes", "No", "No internet service"]
+    StreamingTV      :  Literal["Yes", "No", "No internet service"]
+    StreamingMovies  :  Literal["Yes", "No", "No internet service"]
+    Contract         :  Literal['Month-to-month', 'One year', 'Two year']
+    PaperlessBilling :  Literal["Yes", "No"]
+    PaymentMethod    :  Literal["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"]
+    MonthlyCharges   :  float = Field(ge=0)
 
 class BatchInput(BaseModel):
     customers: list[CustomerInput]
